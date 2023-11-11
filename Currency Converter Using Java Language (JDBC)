@@ -1,0 +1,119 @@
+Database
+
+import java.sql.Connection; 
+import java.sql.DriverManager; 
+import java.sql.SQLException; 
+import java.sql.Statement;
+public class CreateCurrencyConverterDatabase { public static void main(String[] args) {
+String url = "jdbc:mysql://localhost/";
+String user = "aryan";
+String password = "root@123";
+String databaseName = "currency_converter";
+try (Connection connection = DriverManager.getConnection(url, user, password)) { System.out.println("Connected to the MySQL server");
+// Create the currency_converter database
+String createDatabaseQuery = "CREATE DATABASE IF NOT EXISTS " +databaseName;
+try (Statement statement = connection.createStatement()) {
+statement.executeUpdate(createDatabaseQuery);
+System.out.println("Database '" + databaseName + "' created successfully"); }
+// Switch to the currency_converter database
+connection.setCatalog(databaseName);
+// Create the exchange_rates table
+String createTableQuery = "CREATE TABLE IF NOT EXISTS exchange_rates (" + "id INT AUTO_INCREMENT PRIMARY KEY," +"currency_from VARCHAR(3) NOT NULL," +"currency_to VARCHAR(3) NOT NULL," +"rate DOUBLE NOT NULL" +")";
+try (Statement statement = connection.createStatement()) {
+statement.executeUpdate(createTableQuery);
+System.out.println("Table 'exchange_rates' created successfully"); }
+} 
+catch (SQLException e) { e.printStackTrace();
+} }
+}
+
+Exchange Rate
+
+import java.sql.Connection;
+import java.sql.DriverManager; 
+import java.sql.PreparedStatement; 
+import java.sql.SQLException; 
+import java.util.Scanner;
+public class ExchangeRateAdder { public static void main(String[] args) {
+String url = "jdbc:mysql://localhost:3306/currency_converter"; String user = "aryan";
+String password = "root@123";
+try {
+Connection connection = DriverManager.getConnection(url, user, password); Scanner scanner = new Scanner(System.in);
+System.out.print("Enter the source currency (e.g., USD): "); String fromCurrency = scanner.nextLine();
+System.out.print("Enter the target currency (e.g., EUR): "); String toCurrency = scanner.nextLine();
+System.out.print("Enter the exchange rate: "); double rate = scanner.nextDouble();
+// SQL query to insert exchange rate into the database
+String insertQuery = "INSERT INTO exchange_rates (currency_from, currency_to, rate) VALUES (?, ?, ?)";
+PreparedStatement preparedStatement = connection.prepareStatement(insertQuery); preparedStatement.setString(1, fromCurrency);
+preparedStatement.setString(2, toCurrency);
+preparedStatement.setDouble(3, rate);
+int rowsAffected = preparedStatement.executeUpdate();
+if (rowsAffected > 0) {
+System.out.println("Exchange rate added successfully.");
+} else {
+System.out.println("Failed to add exchange rate.");
+}
+preparedStatement.close(); connection.close(); scanner.close();
+} catch (SQLException e) {
+e.printStackTrace(); }
+} }
+
+Code
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent; 
+import java.awt.event.ActionListener; 
+import java.sql.Connection;
+import java.sql.DriverManager; 
+import java.sql.PreparedStatement; 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+public class CurrencyConverterApp {
+private JFrame frame;
+private JPanel panel;
+private JLabel fromLabel, toLabel, resultLabel;
+private JComboBox<String> fromCurrencyComboBox, toCurrencyComboBox; 
+private JTextField amountTextField;
+private JButton convertButton;
+public CurrencyConverterApp() {
+frame = new JFrame("Currency Converter"); frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+panel = new JPanel(); panel.setLayout(new GridLayout(4, 2));
+fromLabel = new JLabel("From Currency:"); toLabel = new JLabel("To Currency:"); resultLabel = new JLabel("");
+fromCurrencyComboBox = new JComboBox<>(); toCurrencyComboBox = new JComboBox<>();
+amountTextField = new JTextField(); convertButton = new JButton("Convert");
+// Add currencies to the ComboBoxes (You can fetch these from the database).
+fromCurrencyComboBox.addItem("USD"); fromCurrencyComboBox.addItem("EUR"); fromCurrencyComboBox.addItem("INR"); toCurrencyComboBox.addItem("USD"); toCurrencyComboBox.addItem("EUR");
+toCurrencyComboBox.addItem("INR");
+convertButton.addActionListener(new ActionListener() { public void actionPerformed(ActionEvent e) {
+convertCurrency(); }
+});
+panel.add(fromLabel); panel.add(fromCurrencyComboBox); panel.add(toLabel); panel.add(toCurrencyComboBox); panel.add(new JLabel("Amount:")); panel.add(amountTextField); panel.add(convertButton); panel.add(resultLabel);
+frame.add(panel); frame.pack(); frame.setVisible(true);
+}
+private void convertCurrency() {
+String fromCurrency = fromCurrencyComboBox.getSelectedItem().toString(); String toCurrency = toCurrencyComboBox.getSelectedItem().toString(); double amount = Double.parseDouble(amountTextField.getText());
+// Fetch exchange rate from the database using JDBC.
+double exchangeRate = getExchangeRate(fromCurrency, toCurrency);
+if (exchangeRate > 0) {
+double convertedAmount = amount * exchangeRate;
+resultLabel.setText(String.format("%.2f %s = %.2f %s", amount, fromCurrency, convertedAmount, toCurrency));
+} else {
+resultLabel.setText("Invalid conversion rates.");
+} }
+private double getExchangeRate(String fromCurrency, String toCurrency) { // Database connection and query to retrieve exchange rate.
+String url = "jdbc:mysql://localhost:3306/currency_converter";
+String user = "aryan";
+String password = "root@123";
+try {
+Connection conn = DriverManager.getConnection(url, user, password);
+String query = "SELECT rate FROM exchange_rates WHERE currency_from = ? AND currency_to = ?";
+PreparedStatement statement = conn.prepareStatement(query); statement.setString(1, fromCurrency);
+statement.setString(2, toCurrency);
+ResultSet resultSet = statement.executeQuery(); if (resultSet.next()) {
+return resultSet.getDouble("rate"); }
+} catch (SQLException e) { e.printStackTrace();
+}
+return -1; // Invalid rate }
+public static void main(String[] args) { SwingUtilities.invokeLater(() -> new CurrencyConverterApp());
+} }
